@@ -188,7 +188,7 @@ def groupscore(grouplist):
     l = len(grouplist)
     gs = 0
     for i in combinations(grouplist,2):
-        gs += pairscores[i[0]][i[1]]                        # requires pairs to be a symetric array... as above
+        gs += pairscores[i[0]][i[1]]         # requires pairs to be a symetric array... as above
     gs = gs/float(((l**2/2) - (l/2)))       # normalize the score to the size of the group
     return gs
 
