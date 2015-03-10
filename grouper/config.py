@@ -20,5 +20,12 @@ names = (
 "yuxiang"
 )
 
+numstudents=len(names)
+
 # Scale for scaling the scoring mechanism
 scale = 1
+
+# whether or not to increment the scoring step with each round
+# (once everyone has been together at least once,
+# this tried to pair students with more distant partners)
+increment = True

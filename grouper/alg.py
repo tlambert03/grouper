@@ -168,6 +168,13 @@ def partition(lst, n):
     division = len(lst) / float(n)
     return [ lst[int(round(division * i)): int(round(division * (i + 1)))] for i in xrange(n) ]
 
+def rand_partition(numgroups, numstudents=config.numstudents):
+    lst = range(numstudents)
+    shuffle(lst)
+    division = len(lst) / float(numgroups)
+    return [ lst[int(round(division * i)): int(round(division * (i + 1)))] for i in xrange(numgroups) ]
+
+
 #############################################
 #         Student Grouping functions        #
 #############################################

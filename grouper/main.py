@@ -3,10 +3,9 @@ import copy
 from random import shuffle
 from numpy import array, argmin
 from pprint import pprint
+import cPickle as pickle
+import os
 
-import grouper.cfg
-import grouper.partition
-import grouper.grouping
-import grouper.vendor
-import grouper.helpers
-import grouper.scoring
+from grouper import config, partition, grouping, vendor, helpers, scoring
+
+State = pickle.load( open( os.getcwd()+"/save.p", "rb" ) )

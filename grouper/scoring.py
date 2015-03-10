@@ -1,6 +1,8 @@
-from grouper import cfg
+from grouper import config
 import numpy.random
 from itertools import combinations
+import copy
+import cPickle as pickle
 
 #############################################
 #             Pair Score functions          #
@@ -8,18 +10,19 @@ from itertools import combinations
 
 class Score:
 
-    def __init__(self, count=16, names=cfg.names):
+    def __init__(self, count=config.numstudents, names=config.names):
         self.score = {}
-        self.count = len(names) or count
+        self.count = count or 16
         self.names = names or []
         self.rounds = 0
+        self.history = []
+        self.future = []
 
     def reset(self):
         """resets the pairscores variable to 0 for every student combo."""
         self.score={}
         for i in range(self.count): self.score[i]=[0]*self.count
-        self.rounds=0
-        self.score
+        self.rounds=0  # this currently ruins the proper count on the rollbacks
 
     def random(self):
         """generates random pairscores data... for testing"""
@@ -31,25 +34,43 @@ class Score:
         self.score = dict(zip(range(self.count), b_symm.T.tolist()))
         self.rounds=numpy.random.randint(10)
 
-    def update(self,partition,scale=cfg.scale):
-        """updates the pairscores dict given the partition provided"""
-        self.score['i']=self.score['i']+1
+    def update(self,partition,scale=config.scale,inc=config.increment):
+        """updates the score given the partition provided"""
+        self.history.append(copy.deepcopy(self.score))
+        self.rounds+=1
         for i in partition:
             for n in combinations(i,2):
-                self.score[n[0]][n[1]] += scale*self.score['i']
-                self.score[n[1]][n[0]] += scale*self.score['i']
+                if inc:
+                    self.score[n[0]][n[1]] += scale * self.rounds
+                    self.score[n[1]][n[0]] += scale * self.rounds
+                else:
+                    self.score[n[0]][n[1]] += scale
+                    self.score[n[1]][n[0]] += scale
+
 
     def printscore(self):
         print "%8s" % "",
-        for name in cfg.names:
+        for name in config.names:
             print "%8s" % name,
         print "\n"
         for key in self.score:
-            print "%8s" % cfg.names[key],
+            print "%8s" % config.names[key],
             for i in self.score[key]:
                 print "%8s" % i,
             print "\n"
         pass
+
+    def rollback(self,steps=1):
+        for i in range(steps):
+            self.future.append(copy.deepcopy(self.score))
+            self.score = self.history.pop(-1)
+            self.rounds -= 1
+
+    def rollforward(self,steps=1):
+        for i in range(steps):
+            self.history.append(copy.deepcopy(self.score))
+            self.score = self.future.pop(-1)
+            self.rounds += 1
 
 
 class Partition:
@@ -109,6 +130,6 @@ and each value is a python list representing how frequently each student has bee
 #    v = ['nikon','olympus','zeiss','leica','andor','api']
 #    for i in v: scopescores[i]=numpy.random.randint(5, size=16).tolist()
 #
-#def update_scopescores(groups,scsc,scale=cfg.scale):        #updates the scope scores array given the groups provided
+#def update_scopescores(groups,scsc,scale=config.scale):        #updates the scope scores array given the groups provided
 #    pass
 #

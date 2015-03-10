@@ -1,3 +1,5 @@
+from grouper import config
+
 #############################################
 #         List partitioning functions       #
 #############################################
@@ -118,3 +120,42 @@ def partition(lst, n):
     """creates a simple partition of lst into n groups"""
     division = len(lst) / float(n)
     return [ lst[int(round(division * i)): int(round(division * (i + 1)))] for i in xrange(n) ]
+
+def rand_partition(numgroups, numstudents=config.numstudents):
+    lst = range(numstudents)
+    shuffle(lst)
+    division = len(lst) / float(numgroups)
+    return [ lst[int(round(division * i)): int(round(division * (i + 1)))] for i in xrange(numgroups) ]
+
+def k_subset(s, k):
+    minsize = len(s)/k
+    if k == len(s):
+        return (tuple([(x,) for x in s]),)
+    k_subs = []
+    for i in range(len(s)):
+        partials = k_subset(s[:i] + s[i + 1:], k)
+        for partial in partials:
+            for p in range(len(partial)):
+                k_subs.append(partial[:p] + (partial[p] + (s[i],),) + partial[p + 1:])
+    return k_subs
+
+def uniq_subsets(s,minsize):
+    u = set()
+    for x in s:
+        if len(min(x, key=len)) < minsize:
+            continue
+        t = []
+        for y in x:
+            y = list(y)
+            y.sort()
+            t.append(tuple(y))
+        t.sort()
+        u.add(tuple(t))
+    return u
+
+
+def all_partitions(lst,groups):
+    minsize = len(lst)/groups
+    return uniq_subsets(k_subset(lst, groups),minsize)
+
+
