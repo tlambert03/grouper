@@ -176,6 +176,8 @@ class Solution():
             print
             i += 1
 
+    def printSchedule(self, withscores=0):
+        pass
 
 
 def loadScore(f=None):
@@ -213,17 +215,17 @@ def rand_partition(numgroups, numstudents=config.numstudents):
     return [ lst[int(round(division * i)): int(round(division * (i + 1)))] for i in xrange(numgroups) ]
 
 
-def shuffleandtest(numgroups, iter=1000, results=1, score=S):
+def shuffleandtest(numgroups, it=1000, results=1, score=S):
     """
     this randomly shuffles the students into a partition of numgroups
     and then scores that partition...
 
-    this repeats iter number of times and returns the partition
+    this repeats it number of times and returns the partition
     that scored the best
     """
     bench = float("inf")                    #set benchmark super high
     best = []
-    for i in range(iter):
+    for i in range(it):
         p = rand_partition(numgroups)              #make random partition of students into n groups
         s = partscore_pairs(p,score)             #score the partition
         if s < bench:                         #if the score is better than the benchmark
@@ -243,11 +245,11 @@ def shuffleandtest(numgroups, iter=1000, results=1, score=S):
         return best[(results * -1):]
 
 
-def greedypairs(numgroups, iter=1, lst=None, score=S):
+def greedypairs(numgroups, it=1, lst=None, score=S):
     lst=lst or shuffleandtest(numgroups,1000,1)
     newsets = copy.deepcopy(lst)
     #alt=[]
-    for i in xrange(iter):
+    for i in xrange(it):
         besti = argmin(array([groupscore_pairs(g) for g in newsets])) #find index of group with best score
         b = newsets[besti]                      #store best group
         del newsets[besti]                      #remove the best group from the bunch
@@ -377,7 +379,7 @@ def scoreSolution(solution, normed=1, score=S,):
     for group in range(numgroups):
         g = groupscore_pairs(solution.part[group], normed)
         v = groupscore_stations(solution.part[group], solution.schedule[group])
-        ss.append((g,v))
+        ss.append((round(g,2),v))
     return ss
 
 
@@ -561,14 +563,14 @@ def find_best_rots(part,vendors,n,score=S):
 
 
 
-def shuffle_match_scopes(vendors,n,iter=1000, report=100):
+def shuffle_match_scopes(vendors,n,it=1000, report=100):
     """
     generate random partition according to number of vendor stations
 
     inputs:
     vendors =
     n =
-    *iter = number of times to randomly iterate
+    *it = number of times to randomly iterate
     *report = iteration report frequency
 
     returns:
@@ -587,7 +589,7 @@ def shuffle_match_scopes(vendors,n,iter=1000, report=100):
 
     r = poss_rotations(n, vendors)
 
-    for i in range(iter):
+    for i in range(it):
         #make random partition and score for student matching
         part = shuffleandtest(numgroups,1000,1)
         #part = partition(numpy.random.permutation(16).tolist(),numgroups)
@@ -636,17 +638,23 @@ def shuffle_match_scopes(vendors,n,iter=1000, report=100):
     print "best partition score: %f" % bestpart
     print "best vendor score: %d" % bestvend
     print "best combo score: %f, (%f/%d)" % (bestcombo, partscore_pairs(bestcombos[-1][0]), sum(group_scope_match(bestcombos[-1][0],bestcombos[-1][1])))
-    return (bestparts, bestvends, bestcombos)
+    #return (bestparts, bestvends, bestcombos)
+    return Solution(bestcombos[-1][0],bestcombos[-1][1])
 
 
-def greedy_match_scopes(vendors,n,iter=100, report=10):
+def parallel_shuffle(args):
+    vendors,n,it,report = args
+    return shuffle_match_scopes(vendors,n,it,report)
+
+
+def greedy_match_scopes(vendors,n,it=100, report=10):
     """
     generate random partition according to number of vendor stations
 
     inputs:
     vendors =
     n =
-    *iter = number of times to randomly iterate
+    *it = number of times to randomly iterate
     *report = iteration report frequency
 
     returns:
@@ -665,7 +673,7 @@ def greedy_match_scopes(vendors,n,iter=100, report=10):
 
     r = poss_rotations(n, vendors)
 
-    for i in range(iter):
+    for i in range(it):
         #make random partition and score for student matching
         part = greedypairs(numgroups)
         #part = partition(numpy.random.permutation(16).tolist(),numgroups)
