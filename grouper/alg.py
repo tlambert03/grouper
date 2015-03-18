@@ -236,6 +236,7 @@ def findbestset(setlist):
             ind.append(part)        # add it to the list of "best" partitions (allows multiple "bests")
     return ind
 
+
 def shuffleandtest(lst,n,iter):
     """
     this accepts an input list (of student IDs),
@@ -245,15 +246,15 @@ def shuffleandtest(lst,n,iter):
     this repeats iter number of times and returns the partition
     that scored the best
     """
-    z = float("inf")                    #set benchmark super high
+    bench = float("inf")                    #set benchmark super high
     for i in range(iter):
         shuffle(lst)                    #shuffle the input list
         g=partition(lst,n)              #make simplest partition of list into n groups
         s=partitionscore(g)             #score the partition
-        if s<z:                         #if the score is better than the benchmark
-            z = s                       #make it the new benchmark
+        if s<bench:                         #if the score is better than the benchmark
+            bench = s                       #make it the new benchmark
             best = g                    #and store that partition of groups...
-    #print "best score: %f" % z
+    #print "best score: %f" % bench
     return best                         #return the best partition of groups gound
 
 
@@ -531,7 +532,6 @@ def find_best_rots(part,vendors,n):
 def shuffle_match_scopes(vendors,n,iter=1000, report=100):
     """
     generate random partition according to number of vendor stations
-
 
     inputs:
     vendors =

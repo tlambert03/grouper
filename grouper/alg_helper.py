@@ -9,7 +9,8 @@ def scope_score_student(student):
 def best_students_for_vendors(vendors, rots):	# output groups of students best paired to vendors
 	pass
 
-def shuffle_match_scopes(vendors,n,iterations=1000, report=100):		# randomly simultaneously check scope and student matches
+def shuffle_match_scopes(vendors,n,iterations=1000, report=100):
+    # randomly simultaneously check scope and student matches
 	numgroups = len(vendors)
 	bestcombo = float("inf")
 	bestcombos = []

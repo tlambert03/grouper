@@ -1,135 +1,98 @@
-from grouper import config
-import numpy.random
 from itertools import combinations
-import copy
-import cPickle as pickle
 
-#############################################
-#             Pair Score functions          #
-#############################################
+def groupscore_pairs(group,score,normed=1):
+    """Scores a group accoring to the provided score object
 
-class Score:
-
-    def __init__(self, count=config.numstudents, names=config.names):
-        self.score = {}
-        self.count = count or 16
-        self.names = names or []
-        self.rounds = 0
-        self.history = []
-        self.future = []
-
-    def reset(self):
-        """resets the pairscores variable to 0 for every student combo."""
-        self.score={}
-        for i in range(self.count): self.score[i]=[0]*self.count
-        self.rounds=0  # this currently ruins the proper count on the rollbacks
-
-    def random(self):
-        """generates random pairscores data... for testing"""
-        self.score={}
-        b = numpy.random.random_integers(0,12,size=(self.count,self.count))
-        b_symm = (b + b.T)/2
-        for i in range(len(b_symm)):
-            b_symm[i][i]=0
-        self.score = dict(zip(range(self.count), b_symm.T.tolist()))
-        self.rounds=numpy.random.randint(10)
-
-    def update(self,partition,scale=config.scale,inc=config.increment):
-        """updates the score given the partition provided"""
-        self.history.append(copy.deepcopy(self.score))
-        self.rounds+=1
-        for i in partition:
-            for n in combinations(i,2):
-                if inc:
-                    self.score[n[0]][n[1]] += scale * self.rounds
-                    self.score[n[1]][n[0]] += scale * self.rounds
-                else:
-                    self.score[n[0]][n[1]] += scale
-                    self.score[n[1]][n[0]] += scale
-
-
-    def printscore(self):
-        print "%8s" % "",
-        for name in config.names:
-            print "%8s" % name,
-        print "\n"
-        for key in self.score:
-            print "%8s" % config.names[key],
-            for i in self.score[key]:
-                print "%8s" % i,
-            print "\n"
-        pass
-
-    def rollback(self,steps=1):
-        for i in range(steps):
-            self.future.append(copy.deepcopy(self.score))
-            self.score = self.history.pop(-1)
-            self.rounds -= 1
-
-    def rollforward(self,steps=1):
-        for i in range(steps):
-            self.history.append(copy.deepcopy(self.score))
-            self.score = self.future.pop(-1)
-            self.rounds += 1
-
-
-class Partition:
-
-    def __init__(self, part):
-        self.part = part
-        self.numgroups = len(self.part)
-
-    def score(self,score):
-        """Scores the partition accoring to the provided score class,
-        by performing the groupscore function for every group in the partition
-
-        returns: a number (lower scores mean the partition is more novel)
-        """
-        ss = 0
-        for i in self.part:
-            ss += groupscore(i,score)                 # requires pairs to be a symetric array... as above
-        return ss
-
-
-def groupscore(grouplist,score):
-    """Scores a group accoring to the global pairscores dict
-
-    accepts: a python list
+    accepts: a python list and an object
             (representing the student ids of a putative group)
     returns: a number
             (lower scores mean the grouping is more novel)
     """
-    groupsize = len(grouplist) # number of students in the group
     groupscore = 0
-    for i in combinations(grouplist,2):
-        groupscore += score.score[i[0]][i[1]]         # requires pairs to be a symetric array... as above
-    groupscore = groupscore/float(((groupsize**2/2) - (groupsize/2)))       # normalize the score to the size of the group
+    for c in combinations(group,2):
+        groupscore += score.pairscores[c[0]][c[1]]
+    if normed==1:
+        # normalize the score to the size of the group
+        groupsize = len(group) # number of students in the group
+        groupscore = groupscore/float(((groupsize**2/2) - (groupsize/2)))
     return groupscore
 
-#############################################
-#             Scope Score functions         #
-#############################################
+def partscore_pairs(part,score):
+    """Scores the partition for student groupings accoring to the provided score class,
+    by performing the groupscore function for every group in the partition
+
+    returns: a number (lower scores mean the partition is more novel)
+    """
+    ss = 0
+    for group in part:
+        ss += groupscore_pairs(group,score)  # requires pairs to be a symetric array... as above
+    return ss
 
 
-#scopescores
-"""
-a dictionary where each key is a vendor name,
-and each value is a python list representing how frequently each student has been at that vendor
-"""
+def groupscore_stations_dict(group, stations, score):
+    """returns a dict with the sum score for the given group at any given station
+    """
+    result={}
+    for station in stations:
+        result[station] = 0
+    for person in group:
+        for station in stations:
+            result[station] += score.stationscores[station][person]
+    return result
+
+def groupscore_stations(group, stations, score):
+    """
+    How appropriate is the grouplist for the stationlists?
+
+    scores a group against a list of stations for vendor matchings according to the provided score object
+    by summing the vendor score for each person in the group for each station in the list of stations
+    """
+    gs = 0
+    for person in group:
+        for station in stations:
+            gs += score.stationscores[station][person]
+    return gs
+
+def partscore_stations(part, stations, score):
+    """returns a list of lists scoring vendor appropriateness
+    for each group in the partition.
+    Sorted with the best scoring station 1st
+    """
+    return [sorted(i,key=lambda x: x[1]) for i in [[t for t in n.iteritems()] for n in [groupscore_stations(i, stations, score) for i in part]]]
 
 
-#def reset_scopescores():
-#    global scopescores
-#    scopescores={}
-#    v = ['nikon','olympus','zeiss','leica','andor','api']
-#    for i in v: scopescores[i]=[0]*16
-#
-#def random_scopescores():
-#    global scopescores
-#    scopescores={}
-#    v = ['nikon','olympus','zeiss','leica','andor','api']
-#    for i in v: scopescores[i]=numpy.random.randint(5, size=16).tolist()
-#
-#def update_scopescores(groups,scsc,scale=config.scale):        #updates the scope scores array given the groups provided
-#    pass
-#
+
+def scoreSolution(solution, score, normed=1):
+    """
+    takes a Solution object and scores it against a Score object
+    returns a list of tuples representing the (group, vendor) score for each group in the partition
+    """
+    numgroups=len(solution.part)
+    ss = []
+    for group in range(numgroups):
+        g = groupscore_pairs(solution.part[group], score, normed)
+        v = groupscore_stations(solution.part[group], solution.schedule[group], score)
+        ss.append((g,v))
+    return ss
+
+
+def rankpartitions(setlist, score):
+    """goes through a list of partitions and scores all of them,
+    returns an ordered list of the best ones...
+
+    accepts: a python list of lists of lists
+            (representing a list of partitions)
+    returns: a number
+            (lower scores mean the partition is more novel)
+    """
+    bench = float("inf")            # set high benchmark
+    best = []
+    for part in setlist:            # for each partition in the list
+        ss = partscore_pairs(part,score)   # get score for that partition
+        if ss > bench:              # if it's worse than the benchmark
+            continue            # go to the next partition
+        elif ss <= bench:            # if it's equal to or better than the benchmark
+            bench = ss              # make it the new benchmark
+            best.append(part)        # add it to the list of "best" partitions (allows multiple "bests")
+    return best
+

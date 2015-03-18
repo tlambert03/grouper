@@ -1,3 +1,5 @@
+import os
+
 # Config
 
 #student names
@@ -20,6 +22,20 @@ names = (
 "yuxiang"
 )
 
+stations = [
+'Nikon-1',
+'Nikon-2',
+'Olympus-WF1',
+'Olympus-WF2',
+'Olympus-TIRF',
+'Olympus-FV1200',
+'Leica-SP8',
+'Leica-WF',
+'Andor-WD',
+'Biovision',
+'Bruker-Opterra',
+'DeltaVision']
+
 numstudents=len(names)
 
 # Scale for scaling the scoring mechanism
@@ -29,3 +45,5 @@ scale = 1
 # (once everyone has been together at least once,
 # this tried to pair students with more distant partners)
 increment = True
+
+savedir = os.curdir

@@ -1,19 +1,48 @@
+from grouper import config, scoring
+from itertools import combinations
+from numpy import argmin
+
 #############################################
 #         Vendor Matching functions         #
 #############################################
 
-def scorescopes_group(group):   # returns dict with sum of individual scope scores for all vendors for a given group
-    global scopescores
+def scorescopes_group(group, score):   # returns dict with sum of individual scope scores for all vendors for a given group
     result={}
-    for vendor in scopescores:
+    for vendor in score.stationscores:
         result[vendor] = 0
     for person in group:
-        for vendor in scopescores:
-            result[vendor] += scopescores[vendor][person]
+        for vendor in score.stationscores:
+            result[vendor] += score.stationscores[vendor][person]
     return result
 
-def scorescope(part):   # returns a list of lists scoring vendor appropriateness for each group in the partition
-    return [sorted(i,key=lambda x: x[1]) for i in [[t for t in n.iteritems()] for n in [scorescopes_group(i) for i in part]]]
+def scorescope(part,score):   # returns a list of lists scoring vendor appropriateness for each group in the partition
+    return [sorted(i,key=lambda x: x[1]) for i in [[t for t in n.iteritems()] for n in [scorescopes_group(i,score) for i in part]]]
+
+def group_scope_match(part,rots,score):
+    """
+    score canditate rotations (rots) for a given student partition
+
+    Input:
+    part = list of lists (student partition)
+    rots = list of lists (canditate rotations)
+
+    Returns:
+    list of scores for each group/rotation in the inputs
+    """
+    match=[]
+    for i in xrange(len(part)):
+        tot=0
+        for n in rots[i]:
+            tot += scorescopes_group(part[i],score)[n]
+        match.append(tot)
+    return match
+
+def scoreallrots(part,rotslist, score):
+    return [sum(group_scope_match(part,rot,score)) for rot in rotslist]
+
+
+########################
+
 
 def poss_rotations(n,vendors):
     """
@@ -87,38 +116,13 @@ def rotate_vendors(rots,vendors):
 
     return options[numrots]()
 
-
-
-
 def rotate_list(lst,n):
     return lst[-n:] + lst[:-n]
 
+########################
 
 
-
-def group_scope_match(part,rots):
-    """
-    score canditate rotations (rots) for a given student partition
-
-    Input:
-    part = list of lists (student partition)
-    rots = list of lists (canditate rotations)
-
-    Returns:
-    list of scores for each group/rotation in the inputs
-    """
-    match=[]
-    for i in xrange(len(part)):
-        tot=0
-        for n in rots[i]:
-            tot += scorescopes_group(part[i])[n]
-        match.append(tot)
-    return match
-
-def scoreallrots(part,rotslist):
-    return [sum(group_scope_match(part,rot)) for rot in rotslist]
-
-def find_best_rots(part,vendors,n):
+def find_best_rots(part,vendors,n,score):
     """
     find best vendor matches given a single partition
     or list of partitions such as that returned by greedy(2)
@@ -129,7 +133,7 @@ def find_best_rots(part,vendors,n):
     r = poss_rotations(n, vendors)
     if any(isinstance(el, list) for el in part[0]):
         for l in part:
-            find_best_rots(l,vendors,n)
+            find_best_rots(l,vendors,n,score)
             #best = r[argmin(scoreallrots(l,r))]
             #s = group_scope_match(l,best)
             #for i in range(len(l)):
@@ -137,27 +141,28 @@ def find_best_rots(part,vendors,n):
             #    pretty_names(l[i:i+1])
             #    print "score: %s\n" % str(s[i])
             #print "vendor score: %d" % sum(s)
-            #print "groups score: %f" % partitionscore(l)
-            #combscore = sum(s)*partitionscore(l)
+            #print "groups score: %f" % scoring.partscore_pairs(l,score)
+            #combscore = sum(s)*scoring.partscore_pairs(l,score)
             #print "comboscore %f" % combscore
             #print "----------------------"
     else:
-        best = r[argmin(scoreallrots(part,r))]
-        s = group_scope_match(part,best)
+        best = r[argmin(scoreallrots(part,r,score))]
+        s = group_scope_match(part,best,score)
         for i in range(len(part)):
             print "%s: " % str(", ".join(best[i]))
             pretty_names(part[i:i+1])
             print "score: %s\n" % str(s[i])
         print "vendor score: %d" % sum(s)
-        print "groups score: %f" % partitionscore(part)
-        combscore = sum(s)*partitionscore(part)
+        print "groups score: %f" % scoring.partscore_pairs(part,score)
+        combscore = sum(s)*scoring.partscore_pairs(part,score)
         print "comboscore %f" % combscore
         print "----------------------"
+
+
 
 def shuffle_match_scopes(vendors,n,iter=1000, report=100):
     """
     generate random partition according to number of vendor stations
-
 
     inputs:
     vendors =
@@ -185,7 +190,7 @@ def shuffle_match_scopes(vendors,n,iter=1000, report=100):
         #make random partition and score for student matching
         part = shuffleandtest(range(16),n,1000)
         #part = partition(numpy.random.permutation(16).tolist(),numgroups)
-        partscore = partitionscore(part)
+        partscore = scoring.partscore_pairs(part,score)
 
         #score partition for scope matching
         best = r[argmin(scoreallrots(part,r))] # which of the possible rotations is best for this random partition?
@@ -222,12 +227,17 @@ def shuffle_match_scopes(vendors,n,iter=1000, report=100):
         if i%report==0:
             print "########Round %s, best so far: %f #########" % (i,bestcombo)
             #print "partition: %s " % (bestcombos[-1][0])
-            #print "score: %s " % (partitionscore(bestcombos[-1][0]))
+            #print "score: %s " % (scoring.partscore_pairs(bestcombos[-1][0],score))
             #print "vendors: %s " % (bestcombos[-1][1])
             #print "score: %f " % (bestvend)
             #print "----------------------"
 
     print "best partition score: %f" % bestpart
     print "best vendor score: %d" % bestvend
-    print "best combo score: %f, (%f/%d)" % (bestcombo, partitionscore(bestcombos[-1][0]), sum(group_scope_match(bestcombos[-1][0],bestcombos[-1][1])))
+    print "best combo score: %f, (%f/%d)" % (bestcombo, scoring.partscore_pairs(bestcombos[-1][0],score), sum(group_scope_match(bestcombos[-1][0],bestcombos[-1][1])))
     return (bestparts, bestvends, bestcombos)
+
+
+def pretty_names(parts):
+    for n in parts:
+        print ', '.join(config.names[i] for i in n)

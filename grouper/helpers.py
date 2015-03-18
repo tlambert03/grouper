@@ -2,13 +2,8 @@
 #             Helper functions              #
 #############################################
 
-def nodupes(h):
-    for i in h:
-        if len(i)!=len(set(i)):
-            return None
-    return h
-
-def equal_partitions(a,b):      # check whether two partitions represent the same subgroups groups
+def equal_partitions(a,b):
+    """ check whether two partitions represent the same grouping of students"""
     return set(frozenset(i) for i in a) == set(frozenset(i) for i in b)
 
 
