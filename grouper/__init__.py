@@ -184,9 +184,9 @@ def loadScore(f=None):
 
 
 S = Score()
-S.rand_pairscores()
-S.rand_stationscores()
-
+#S.rand_pairscores()
+#S.rand_stationscores()
+S.load()
 
 #############################################
 #         Student Grouping functions        #
