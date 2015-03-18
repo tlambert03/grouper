@@ -287,6 +287,17 @@ def findbestpart(partlist, score=S):
             ind.append(part)        # add it to the list of "best" partitions (allows multiple "bests")
     return ind
 
+def powerset(iterable):
+    """powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"""
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+def powergroups(students, groups):
+    s = range(students)
+    minsize=students/groups
+    even = 1 if students%groups else 0
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1) if r==minsize or r==(minsize+even))
+
 
 #############################################
 #         Scoring functions                 #
@@ -835,9 +846,21 @@ def dictify(l,i=1):
     return Y
 
 
-######
-#HELPERS
-#######
+#############################################
+#             Helper functions              #
+#############################################
+
+def equal_partitions(a,b):
+    """ check whether two partitions represent the same grouping of students"""
+    return set(frozenset(i) for i in a) == set(frozenset(i) for i in b)
+
+
+def dupebranch(test,stored):
+    for i in stored:
+        if equal_partitions(i,test):
+            return True
+    return False
+
 
 def pretty_names(parts):
     for n in parts:
