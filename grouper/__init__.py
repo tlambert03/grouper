@@ -7,6 +7,7 @@ import sys
 from itertools import combinations
 
 from grouper import config
+from grouper import params
 from random import shuffle
 
 
@@ -167,11 +168,12 @@ class Solution():
             # could put additional group scores here...
             g += 1
 
-    def printSol(self, withscores=0):
+    def printSol(self):
         i = 1
         for group in self.part:
-            print "Group %d:" % i
-            print ", ".join([config.names[g] for g in group] )
+            print "Group %d: (%.2f)" % (i,round(groupscore_pairs(group),2))
+            print ", ".join([config.names[g] for g in group])
+            print "Schedule: (%.2f)" % (round(groupscore_stations(group,self.schedule[i-1]),2))
             print ", ".join([station for station in self.schedule[i-1]] )
             print
             i += 1
@@ -604,40 +606,45 @@ def shuffle_match_scopes(vendors,n,it=1000, report=100):
         combscore = vendscore * partscore
 
         if combscore < bestcombo:
-            print " "
-            print "new best COMBO:"
-            print "partition: %s " % (part)
-            print "vendor match: %s " % (best)
-            print "part * vendor = combo score: %f * %f = % f" % (partscore,vendscore,combscore)
-            print "----------------------"
+            if i > it/4: #avoid dumping out the early stuff...
+                print "--------COMBO---------"
+                print "COMBO: %.2f " % (round(combscore,2))
+                print "Partition: %s " % (part)
+                print "score: %.2f " % (round(partscore,2))
+                print "Schedule: %s " % (best)
+                print "score: %.2f " % (round(vendscore,2))
+                print "--------COMBO---------"
             bestcombo = combscore
             bestcombos.append([part,best])
-        if partscore < bestpart:
-            print " "
-            print "new best PARTITION: %s " % (part)
-            print "score: %f " % (partscore)
-            print "----------------------"
-            bestpart = partscore
-            bestparts.append(part)
+        #if partscore < bestpart:
+            #print " "
+            #print "PARTITION: %s " % (part)
+            #print "score: %f " % (round(partscore,2))
+            #print "----------------------"
+            #bestpart = partscore
+            #bestparts.append(part)
         if vendscore < bestvend:
-            print " "
-            print "new best VENDOR: %s " % (best)
-            print "score: %s = %f " % (s,vendscore)
-            print "partition (%f): %s " % (partscore,part)
-            print "----------------------"
+            if i > it/4:
+                print "-------VENDOR--------"
+                print "combo: %.2f " % (round(combscore,2))
+                print "Partition: %s " % (part)
+                print "score: %.2f " % (round(partscore,2))
+                print "Schedule: %s " % (best)
+                print "score: %.2f " % (round(vendscore,2))
+                print "-------VENDOR---------"
             bestvend = vendscore
             bestvends.append(best)
         if i%report==0:
-            print "########Round %s, best so far: %f #########" % (i,bestcombo)
+            print "########Round %s, best so far: %.2f #########" % (i,round(bestcombo,2))
             #print "partition: %s " % (bestcombos[-1][0])
             #print "score: %s " % (partscore_pairs(bestcombos[-1][0]))
             #print "vendors: %s " % (bestcombos[-1][1])
             #print "score: %f " % (bestvend)
             #print "----------------------"
 
-    print "best partition score: %f" % bestpart
-    print "best vendor score: %d" % bestvend
-    print "best combo score: %f, (%f/%d)" % (bestcombo, partscore_pairs(bestcombos[-1][0]), sum(group_scope_match(bestcombos[-1][0],bestcombos[-1][1])))
+    #print "best partition score: %f" % bestpart
+    #print "best vendor score: %d" % bestvend
+    #print "best combo score: %f, (%f/%d)" % (bestcombo, partscore_pairs(bestcombos[-1][0]), sum(group_scope_match(bestcombos[-1][0],bestcombos[-1][1])))
     #return (bestparts, bestvends, bestcombos)
     return Solution(bestcombos[-1][0],bestcombos[-1][1])
 
