@@ -46,4 +46,13 @@ scale = 1
 # this tried to pair students with more distant partners)
 increment = True
 
+# NOTE: the final scoring increment (i.e. the amount added to either the station score or the student score
+#    is the combination of scale * #rounds if increment is true, otherwise, just scale...)
+
+
+# where to save the scoring object
 savedir = os.curdir
+
+# how many iterations the ititial shuffle and match groups goes through during the solve routine
+# (before then matching that group to a station rotation)
+headstart = 2000

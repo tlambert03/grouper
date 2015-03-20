@@ -5,6 +5,7 @@ import cPickle as pickle
 import os
 import sys
 from itertools import combinations
+import multiprocessing
 
 from grouper import config
 from grouper import params
@@ -51,6 +52,16 @@ class Score:
     def reset_rounds(self):
         self.rounds=0
 
+    def reset(self):
+        self.history.append(copy.deepcopy(self))
+        self.reset_pairs()
+        self.reset_stationscores()
+        self.reset_rounds()
+
+    def random(self):
+        self.rand_pairscores()
+        self.rand_stationscores()
+
     def rand_pairscores(self):
         """generates random pairscores data... for testing"""
         maxscore = 12
@@ -69,18 +80,28 @@ class Score:
         for s in self.stations: self.stationscores[s]=numpy.random.randint(maxscore, size=self.numstudents).tolist()
         self.print_stationscores()
 
-    def update(self,partition,scale=config.scale,inc=config.increment):
+    def update(self,solution,scale=config.scale,inc=config.increment):
         """updates the score given the partition provided"""
-        self.history.append(copy.deepcopy(self.pairscores))
+        self.history.append(copy.deepcopy(self))
+        self.solutions.append(solution)
         self.rounds+=1
-        for i in partition:
-            for n in combinations(i,2):
+        i = 0
+        for group in solution.part: # for every group in the partition
+            #update the pairscores for each student combo in the group...
+            for n in combinations(group,2):
                 if inc:
                     self.pairscores[n[0]][n[1]] += scale * self.rounds
                     self.pairscores[n[1]][n[0]] += scale * self.rounds
                 else:
                     self.pairscores[n[0]][n[1]] += scale
                     self.pairscores[n[1]][n[0]] += scale
+            for student in group:
+                for station in solution.schedule[i]:
+                    if inc:
+                        self.stationscores[station][student] += scale * self.rounds
+                    else:
+                        self.stationscores[station][student] += scale
+            i += 1
 
     def print_pairscores(self):
         print "%8s" % "",
@@ -107,15 +128,26 @@ class Score:
 
     def rollback(self,steps=1):
         for i in range(steps):
-            self.future.append(copy.deepcopy(self.pairscores))
-            self.pairscores = self.history.pop(-1)
-            self.rounds -= 1
+            self.future.append(copy.deepcopy(self))
+            temp = self.history.pop(-1)
+            self.numstudents = temp.numstudents
+            self.names = temp.names
+            self.stations = temp.stations
+            self.rounds = temp.rounds
+            self.pairscores = temp.pairscores
+            self.stationscores = temp.stationscores
+
 
     def rollforward(self,steps=1):
         for i in range(steps):
-            self.history.append(copy.deepcopy(self.pairscores))
-            self.pairscores = self.future.pop(-1)
-            self.rounds += 1
+            self.history.append(copy.deepcopy(self))
+            temp = self.future.pop(-1)
+            self.numstudents = temp.numstudents
+            self.names = temp.names
+            self.stations = temp.stations
+            self.rounds = temp.rounds
+            self.pairscores = temp.pairscores
+            self.stationscores = temp.stationscores
 
     def save(self, savedir=config.savedir, name='save'):
         name = name + '.p'
@@ -177,6 +209,16 @@ class Solution():
             print ", ".join([station for station in self.schedule[i-1]] )
             print
             i += 1
+        s = scoreSolution(self)
+        gs = sum([g[0] for g in s])
+        rs = sum([g[1] for g in s])
+        cs = gs + rs
+        print self.part
+        print self.schedule
+        print "Partition Score: ", gs
+        print "Rotation Score: ", rs
+        print "Combo Score: ", cs
+        print "--------------"
 
     def printSchedule(self, withscores=0):
         pass
@@ -248,7 +290,7 @@ def shuffleandtest(numgroups, it=1000, results=1, score=S):
 
 
 def greedypairs(numgroups, it=1, lst=None, score=S):
-    lst=lst or shuffleandtest(numgroups,1000,1)
+    lst=lst or shuffleandtest(numgroups,1000)
     newsets = copy.deepcopy(lst)
     #alt=[]
     for i in xrange(it):
@@ -509,14 +551,35 @@ def rotate_vendors(rots,vendors):
 
     def six():
         return zip(rotate_list(vendors,rots[0]),rotate_list(vendors,rots[1]),
-            rotate_list(vendors,rots[2]),rotate_list(vendors,rots[3]),rotate_list(vendors,rots[4]),rotate_list(vendors,rots[5]))
+            rotate_list(vendors,rots[2]),rotate_list(vendors,rots[3]),rotate_list(vendors,rots[4]),
+            rotate_list(vendors,rots[5]))
+
+    def seven():
+        return zip(rotate_list(vendors,rots[0]),rotate_list(vendors,rots[1]),
+            rotate_list(vendors,rots[2]),rotate_list(vendors,rots[3]),rotate_list(vendors,rots[4]),
+            rotate_list(vendors,rots[5]),rotate_list(vendors,rots[6]))
+
+    def eight():
+        return zip(rotate_list(vendors,rots[0]),rotate_list(vendors,rots[1]),
+            rotate_list(vendors,rots[2]),rotate_list(vendors,rots[3]),rotate_list(vendors,rots[4]),
+            rotate_list(vendors,rots[5]),rotate_list(vendors,rots[6]),rotate_list(vendors,rots[7]))
+
+    def nine():
+        return zip(rotate_list(vendors,rots[0]),rotate_list(vendors,rots[1]),
+            rotate_list(vendors,rots[2]),rotate_list(vendors,rots[3]),rotate_list(vendors,rots[4]),
+            rotate_list(vendors,rots[5]),rotate_list(vendors,rots[6]),rotate_list(vendors,rots[7]),
+            rotate_list(vendors,rots[8]))
+
 
     options = {
         2 : two,
         3 : three,
         4 : four,
         5 : five,
-        5 : six,
+        6 : six,
+        7 : seven,
+        8 : eight,
+        9 : nine,
     }
 
     return options[numrots]()
@@ -547,8 +610,8 @@ def find_best_rots(part,vendors,n,score=S):
             #    print "score: %s\n" % str(s[i])
             #print "vendor score: %d" % sum(s)
             #print "groups score: %f" % partscore_pairs(l,score)
-            #combscore = sum(s)*partscore_pairs(l,score)
-            #print "comboscore %f" % combscore
+            #comboscore = sum(s)*partscore_pairs(l,score)
+            #print "comboscore %f" % comboscore
             #print "----------------------"
     else:
         best = r[argmin(scoreallrots(part,r))]
@@ -559,13 +622,13 @@ def find_best_rots(part,vendors,n,score=S):
             print "score: %s\n" % str(s[i])
         print "vendor score: %d" % sum(s)
         print "groups score: %f" % partscore_pairs(part)
-        combscore = sum(s)*partscore_pairs(part)
-        print "comboscore %f" % combscore
+        comboscore = sum(s)*partscore_pairs(part)
+        print "comboscore %f" % comboscore
         print "----------------------"
 
 
 
-def shuffle_match_scopes(vendors,n,it=1000, report=100):
+def shuffle_match_scopes(vendors,n,it=1000,report=100, headstart=config.headstart):
     """
     generate random partition according to number of vendor stations
 
@@ -593,7 +656,7 @@ def shuffle_match_scopes(vendors,n,it=1000, report=100):
 
     for i in range(it):
         #make random partition and score for student matching
-        part = shuffleandtest(numgroups,1000,1)
+        part = shuffleandtest(numgroups,headstart)
         #part = partition(numpy.random.permutation(16).tolist(),numgroups)
         partscore = partscore_pairs(part)
 
@@ -603,18 +666,18 @@ def shuffle_match_scopes(vendors,n,it=1000, report=100):
         vendscore = sum(s)  # vendscore is the sum group-scope match score
 
         # calculate combined score
-        combscore = vendscore * partscore
+        comboscore = vendscore + partscore
 
-        if combscore < bestcombo:
+        if comboscore < bestcombo:
             if i > it/4: #avoid dumping out the early stuff...
                 print "--------COMBO---------"
-                print "COMBO: %.2f " % (round(combscore,2))
+                print "COMBO: %.2f " % (round(comboscore,2))
                 print "Partition: %s " % (part)
                 print "score: %.2f " % (round(partscore,2))
                 print "Schedule: %s " % (best)
                 print "score: %.2f " % (round(vendscore,2))
-                print "--------COMBO---------"
-            bestcombo = combscore
+                print "--------/COMBO--------"
+            bestcombo = comboscore
             bestcombos.append([part,best])
         #if partscore < bestpart:
             #print " "
@@ -626,12 +689,12 @@ def shuffle_match_scopes(vendors,n,it=1000, report=100):
         if vendscore < bestvend:
             if i > it/4:
                 print "-------VENDOR--------"
-                print "combo: %.2f " % (round(combscore,2))
+                print "combo: %.2f " % (round(comboscore,2))
                 print "Partition: %s " % (part)
                 print "score: %.2f " % (round(partscore,2))
                 print "Schedule: %s " % (best)
                 print "score: %.2f " % (round(vendscore,2))
-                print "-------VENDOR---------"
+                print "-------/VENDOR--------"
             bestvend = vendscore
             bestvends.append(best)
         if i%report==0:
@@ -650,8 +713,29 @@ def shuffle_match_scopes(vendors,n,it=1000, report=100):
 
 
 def parallel_shuffle(args):
-    vendors,n,it,report = args
-    return shuffle_match_scopes(vendors,n,it,report)
+    stations,numrotations,iterations,report = args
+    return shuffle_match_scopes(stations,numrotations,iterations,report)
+
+def solve(stations=params.stations, numrotations=params.numrotations, cores=multiprocessing.cpu_count(), iterations=1000, report=100):
+    p = multiprocessing.Pool(processes=cores)
+    results = p.map(parallel_shuffle, [(stations,numrotations,iterations,report)]*cores)
+    print
+    print
+    print "--------------"
+    print 'BEST RESULT:'
+    print
+    bench = float("inf")
+    for sol in results:
+        s = scoreSolution(sol)
+        gs = sum([g[0] for g in s])
+        rs = sum([g[1] for g in s])
+        cs = gs * rs
+        if cs < bench:
+            bench = cs
+            best = sol
+    print best.printSol()
+    return best
+
 
 
 def greedy_match_scopes(vendors,n,it=100, report=10):
@@ -692,16 +776,16 @@ def greedy_match_scopes(vendors,n,it=100, report=10):
         vendscore = sum(s)  # vendscore is the sum group-scope match score
 
         # calculate combined score
-        combscore = vendscore * partscore
+        comboscore = vendscore + partscore
 
-        if combscore < bestcombo:
+        if comboscore < bestcombo:
             print " "
             print "new best COMBO:"
             print "partition: %s " % (part)
             print "vendor match: %s " % (best)
-            print "part * vendor = combo score: %f * %f = % f" % (partscore,vendscore,combscore)
+            print "part * vendor = combo score: %f + %f = % f" % (partscore,vendscore,comboscore)
             print "----------------------"
-            bestcombo = combscore
+            bestcombo = comboscore
             bestcombos.append([part,best])
         if partscore < bestpart:
             print " "
